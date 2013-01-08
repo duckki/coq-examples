@@ -90,40 +90,34 @@ Lemma fib_stream_aux_plus : forall n m,
   rewrite (frob_eq (fib_stream_aux n m)).
   simpl.
   constructor.
-  specialize (fib_stream_aux_plus m (n + m)).
-  assumption.
+  apply fib_stream_aux_plus.
 Qed.
 
-Require Import Omega.
 
 (* strong induction *)
+Require Import Omega.
+
 Section strong_ind.
   Variable P : nat -> Prop.
 
   Hypothesis H : forall n, (forall m, m < n -> P m) -> P n.
 
-  Ltac t := simpl in *; intuition; try autorewrite with core in *; auto.
-
   Lemma strong_ind' : forall n m, m < n -> P m.
-    induction n; t; omega.
+    induction n; intuition; omega.
   Qed.
 
   Theorem strong_ind : forall n, P n.
-    intros.
-    apply strong_ind' with (S n).
-    omega.
+    intros; apply strong_ind' with (S n); omega.
   Qed.
 End strong_ind.
+
 
 (* main theorem *)
 Theorem fib_stream_eq_fib : forall n, stream_nth fib_stream n = fib n.
   induction n using strong_ind; intuition.
-  destruct n; simpl in *; intuition.
-  rewrite <- (H n) by omega.
-  destruct n; simpl in *; intuition.
-  rewrite <- (H n) by omega.
+  destruct n; simpl in *; intuition; rewrite <- (H n) by omega.
+  destruct n; simpl in *; intuition; rewrite <- (H n) by omega.
   rewrite stream_nth_plus by auto.
-  unfold fib_stream.
   apply stream_eq_nth_eq.
   apply fib_stream_aux_plus.
 Qed.
