@@ -6,7 +6,7 @@ Set Implicit Arguments.
  * ========================================================================= *)
 
 CoInductive stream (A : Type) : Type :=
-  | Cons : A -> stream A -> stream A.
+| Cons : A -> stream A -> stream A.
 
 CoInductive stream_eq A : stream A -> stream A -> Prop :=
 | stream_eq_refl : forall v s1 s2, stream_eq s1 s2
