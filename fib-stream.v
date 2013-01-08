@@ -22,7 +22,7 @@ Definition fib_stream := Cons 0 (Cons 1 (fib_stream_aux 0 1)).
 
 
 (* ===========================================================================
- * finite approximation of streams
+ * finite observation of streams
  * ========================================================================= *)
 
 Fixpoint stream_nth A (s:stream A) (n:nat) : A :=
@@ -42,10 +42,10 @@ Qed.
 
 
 (* ===========================================================================
- * correspondence between fib_stream and recursive definition of fib
+ * correspondence between fib_stream and a recursive definition of fib
  * ========================================================================= *)
 
-(* recursive fib definition *)
+(* a recursive definition *)
 Fixpoint fib (n:nat) : nat :=
   match n with
     | 0 => 0
@@ -57,7 +57,7 @@ Fixpoint fib (n:nat) : nat :=
   end.
 
 
-(* some helper definitions *)
+(* some helper definition and lemma *)
 CoFixpoint stream_plus (a b: stream nat) : stream nat :=
   match a, b with
     | Cons n a', Cons m b' => Cons (n + m) (stream_plus a' b')
