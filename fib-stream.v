@@ -115,8 +115,8 @@ End strong_ind.
 (* main theorem *)
 Theorem fib_stream_eq_fib : forall n, stream_nth fib_stream n = fib n.
   induction n using strong_ind; intuition.
-  destruct n; simpl in *; intuition; rewrite <- (H n) by omega.
-  destruct n; simpl in *; intuition; rewrite <- (H n) by omega.
+  destruct n; simpl; intuition; rewrite <- (H n) by auto.
+  destruct n; simpl; intuition; rewrite <- (H n) by auto.
   rewrite stream_nth_plus by auto.
   apply stream_eq_nth_eq.
   apply fib_stream_aux_plus.
