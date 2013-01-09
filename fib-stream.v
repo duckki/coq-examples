@@ -9,7 +9,7 @@ CoInductive stream (A : Type) : Type :=
 | Cons : A -> stream A -> stream A.
 
 CoInductive stream_eq A : stream A -> stream A -> Prop :=
-| stream_eq_refl : forall v s1 s2, stream_eq s1 s2
+| stream_eq_Cons : forall v s1 s2, stream_eq s1 s2
                                    -> stream_eq (Cons v s1) (Cons v s2).
 
 
@@ -42,6 +42,22 @@ Qed.
 
 
 (* ===========================================================================
+ * zip function
+ * ========================================================================= *)
+
+CoFixpoint zip A B C (f : A -> B -> C) (a : stream A) (b : stream B) : stream C :=
+  match a, b with
+    | Cons x a', Cons y b' => Cons (f x y) (zip f a' b')
+  end.
+
+Theorem zip_nth : forall A B C (f : A -> B -> C) n (s : stream A) (s' : stream B),
+                    f (stream_nth s n) (stream_nth s' n)
+                    = stream_nth (zip f s s') n.
+  induction n; destruct s, s'; simpl; intuition.
+Qed.
+
+
+(* ===========================================================================
  * correspondence between fib_stream and a recursive definition of fib
  * ========================================================================= *)
 
@@ -57,18 +73,6 @@ Fixpoint fib (n:nat) : nat :=
   end.
 
 
-(* some helper definition and lemma *)
-CoFixpoint stream_plus (a b: stream nat) : stream nat :=
-  match a, b with
-    | Cons n a', Cons m b' => Cons (n + m) (stream_plus a' b')
-  end.
-
-Lemma stream_nth_plus : forall n s s', stream_nth s n + stream_nth s' n
-                                       = stream_nth (stream_plus s s') n.
-  induction n; destruct s, s'; simpl; intuition.
-Qed.
-
-
 (* tools for coinduction (from the CPDT book by Adam Chlipala) *)
 Definition frob A (s : stream A) : stream A :=
   match s with
@@ -79,17 +83,15 @@ Theorem frob_eq : forall A (s : stream A), s = frob s.
   destruct s; reflexivity.
 Qed.
 
-
 (* a fact about fib_stream_aux *)
 Lemma fib_stream_aux_plus : forall n m,
       stream_eq (fib_stream_aux n m)
-                (stream_plus (Cons n (Cons m (fib_stream_aux n m)))
-                             (Cons m (fib_stream_aux n m))).
+                (zip plus (Cons n (Cons m (fib_stream_aux n m)))
+                          (Cons m (fib_stream_aux n m))).
   cofix; intros.
-  rewrite (frob_eq (stream_plus (Cons n (Cons m (fib_stream_aux n m))) (Cons m (fib_stream_aux n m)))).
-  rewrite (frob_eq (fib_stream_aux n m)).
-  simpl.
-  constructor.
+  match goal with
+    | |- stream_eq ?a ?b => rewrite (frob_eq b); rewrite (frob_eq a)
+  end; simpl; constructor.
   apply fib_stream_aux_plus.
 Qed.
 
@@ -117,7 +119,7 @@ Theorem fib_stream_eq_fib : forall n, stream_nth fib_stream n = fib n.
   induction n using strong_ind; intuition.
   destruct n; simpl; intuition; rewrite <- (H n) by auto.
   destruct n; simpl; intuition; rewrite <- (H n) by auto.
-  rewrite stream_nth_plus by auto.
+  rewrite zip_nth by auto.
   apply stream_eq_nth_eq.
   apply fib_stream_aux_plus.
 Qed.
