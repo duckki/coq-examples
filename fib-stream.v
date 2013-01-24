@@ -42,17 +42,17 @@ Qed.
 
 
 (* ===========================================================================
- * zip function
+ * zipWith function
  * ========================================================================= *)
 
-CoFixpoint zip A B C (f : A -> B -> C) (a : stream A) (b : stream B) : stream C :=
+CoFixpoint zipWith A B C (f : A -> B -> C) (a : stream A) (b : stream B) : stream C :=
   match a, b with
-    | Cons x a', Cons y b' => Cons (f x y) (zip f a' b')
+    | Cons x a', Cons y b' => Cons (f x y) (zipWith f a' b')
   end.
 
-Theorem zip_nth : forall A B C (f : A -> B -> C) n (s : stream A) (s' : stream B),
+Theorem zipWith_nth : forall A B C (f : A -> B -> C) n (s : stream A) (s' : stream B),
                     f (stream_nth s n) (stream_nth s' n)
-                    = stream_nth (zip f s s') n.
+                    = stream_nth (zipWith f s s') n.
   induction n; destruct s, s'; simpl; intuition.
 Qed.
 
@@ -86,8 +86,8 @@ Qed.
 (* a fact about fib_stream_aux *)
 Lemma fib_stream_aux_plus : forall n m,
       stream_eq (fib_stream_aux n m)
-                (zip plus (Cons n (Cons m (fib_stream_aux n m)))
-                          (Cons m (fib_stream_aux n m))).
+                (zipWith plus (Cons n (Cons m (fib_stream_aux n m)))
+                              (Cons m (fib_stream_aux n m))).
   cofix; intros.
   match goal with
     | |- stream_eq ?a ?b => rewrite (frob_eq b); rewrite (frob_eq a)
@@ -119,7 +119,7 @@ Theorem fib_stream_eq_fib : forall n, stream_nth fib_stream n = fib n.
   induction n using strong_ind; intuition.
   destruct n; simpl; intuition; rewrite <- (H n) by auto.
   destruct n; simpl; intuition; rewrite <- (H n) by auto.
-  rewrite zip_nth by auto.
+  rewrite zipWith_nth by auto.
   apply stream_eq_nth_eq.
   apply fib_stream_aux_plus.
 Qed.
