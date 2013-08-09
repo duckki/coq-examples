@@ -548,7 +548,7 @@ Qed.
 
 
 (*=============================================================================
- * denotation into Coq (for reflexive tactics)
+ * denotation into Coq (for reflective tactics)
  *===========================================================================*)
 
 Section denotation.
