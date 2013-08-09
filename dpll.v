@@ -1,8 +1,14 @@
+(*=============================================================================
+ * A simple DPLL implementation and its correctness proof, along with
+ * a reflective tactic.
+ * - Author: Duckki Oe
+ * - Updated: 8/9/2013
+ *===========================================================================*)
 Set Implicit Arguments.
 Require Import List Arith Omega.
 
 (*=============================================================================
- * dpll
+ * dpll implementation
  *===========================================================================*)
 
 Inductive lit := pos : nat -> lit | neg : nat -> lit.
@@ -274,7 +280,7 @@ Lemma refutable_unsat : forall g f, refutable f nil -> ~ satFormula g f.
   red; simpl; intros; omega.
 Qed.
 
-Lemma dpll_unsat_sound : forall n g f, dpll n f = None -> ~ satFormula g f.
+Theorem dpll_unsat_sound : forall n g f, dpll n f = None -> ~ satFormula g f.
   intros; eapply refutable_unsat, dpll_refutable; eauto 2.
 Qed.
 
@@ -368,7 +374,7 @@ Corollary dpll_unsat_sound' : forall n f, dpll n f = None -> ~ satisfiable f.
   contradict H1; eapply dpll_unsat_sound; eauto 2.
 Qed.
 
-Goal forall g f, satFormula g f -> satisfiable f. (* hard to prove? *)
+Goal forall g f, satFormula g f -> satisfiable f. (* hard to prove *)
 Abort.
 
 
@@ -507,13 +513,13 @@ Lemma dpll_h_length : forall F n m m', dpll_h F m n = Some m'
   }
 Qed.
 
-Theorem dpll_okFormula : forall F nv m , dpll nv F = Some m
+Lemma dpll_okFormula : forall F nv m , dpll nv F = Some m
                                          -> okFormula m F = true.
   unfold dpll; intros; eapply dpll_h_okFormula; eauto 3.
 Qed.
 Hint Resolve dpll_okFormula.
 
-Theorem dpll_length : forall F nv m , dpll nv F = Some m
+Lemma dpll_length : forall F nv m , dpll nv F = Some m
                                       -> length m = nv.
   unfold dpll; intros.
   change (length m = length nil(A:=bool) + nv).
@@ -521,7 +527,7 @@ Theorem dpll_length : forall F nv m , dpll nv F = Some m
 Qed.
 Hint Resolve dpll_length.
 
-Theorem dpll_Some_interp : forall nv F m, dpll nv F = Some m -> wf_formula nv F
+Lemma dpll_Some_interp : forall nv F m, dpll nv F = Some m -> wf_formula nv F
                                        -> interpFormula (m2i m) F = true.
   intros.
   assert (length m = nv) by eauto 3.
@@ -593,7 +599,7 @@ Lemma denoteClause_trim : forall g c, denoteClause' g c -> denoteClause g c.
 Qed.
 Hint Resolve denoteClause_trim.
 
-Lemma denoteFormula_trim : forall g x, denoteFormula' g x -> denoteFormula g x.
+Theorem denoteFormula_trim : forall g x, denoteFormula' g x -> denoteFormula g x.
   induction x; simpl; try tauto; intros.
   destruct x; simpl; auto.
   destruct H.
@@ -621,7 +627,8 @@ Lemma denoteFormula_satClause : forall g f c, denoteFormula g f -> In c f
 Qed.
 Hint Resolve denoteFormula_satClause.
 
-Lemma denoteFormula_satFormula : forall g f, denoteFormula g f -> satFormula g f.
+Theorem denoteFormula_satFormula : forall g f, denoteFormula g f
+                                               -> satFormula g f.
   red; intros; eauto 3.
 Qed.
 Hint Resolve denoteFormula_satFormula.
@@ -634,11 +641,6 @@ Hint Resolve denoteFormula_satFormula.
 Theorem dpll_correct : forall n g f, dpll n f = None -> ~ denoteFormula' g f.
   red; intros; assert (satFormula g f) by auto.
   contradict H1; eapply dpll_unsat_sound; eauto.
-Qed.
-
-Corollary dpll_correct' : forall n g f, wf_formula n f -> dpll n f = None
-                                        -> ~ denoteFormula' g f.
-  intros; eapply dpll_correct; eauto.
 Qed.
 
 
