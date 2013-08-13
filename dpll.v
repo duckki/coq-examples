@@ -129,7 +129,7 @@ Hint Resolve okClause_In.
 
 
 (*=============================================================================
- * denotational satisfiablity
+ * denotational satisfiability
  *===========================================================================*)
 
 Definition context := nat -> Prop.
@@ -150,7 +150,7 @@ End denoteSat.
 
 
 (*=============================================================================
- * refutaional proofs
+ * refutational proofs
  *===========================================================================*)
 
 Inductive refutable (F : formula) (l : list bool) : Prop :=
@@ -177,7 +177,7 @@ Qed.
 
 
 (*=============================================================================
- * m2i - turn a finite model into a total interpretation function
+ * m2i - turn a finite model into a interpretation function
  *===========================================================================*)
 
 Definition m2i m n := nth n m true.
@@ -275,18 +275,18 @@ Lemma refutable_unsat_h : forall g f s, refutable f s -> assumed g s
   intro; elim (@dnc (g (length l))); red; destruct 1; contradict H2; auto.
 Qed.
 
-Lemma refutable_unsat : forall g f, refutable f nil -> ~ satFormula g f.
+Theorem refutable_unsat : forall g f, refutable f nil -> ~ satFormula g f.
   intros; eapply refutable_unsat_h; eauto 3.
   red; simpl; intros; omega.
 Qed.
 
-Theorem dpll_unsat_sound : forall n g f, dpll n f = None -> ~ satFormula g f.
+Corollary dpll_unsat_sound : forall n g f, dpll n f = None -> ~ satFormula g f.
   intros; eapply refutable_unsat, dpll_refutable; eauto 2.
 Qed.
 
 
 (*=============================================================================
- * clssical semantics
+ * classical semantics
  *===========================================================================*)
 
 Definition interp := nat -> bool.
@@ -333,7 +333,7 @@ Eval simpl in interpLit I (pos 0).
 
 
 (*=============================================================================
- * denotational satisfiablity and classical satisfiability
+ * denotational satisfiability and classical satisfiability
  *===========================================================================*)
 
 (* a trivial Coq context from classical Boolean model *)
