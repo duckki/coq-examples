@@ -4,6 +4,32 @@
  * - Author: Duckki Oe
  * - Updated: 8/9/2013
  *===========================================================================*)
+(*=============================================================================
+  ++ list of theorems (corollaries are indented)
+  dpll = None => refutable
+  refutable => ~ sat (Coq)
+    dpll = None => ~ sat (Coq)
+  ----------------------------
+  sat => sat (Coq) (equivalently, ~ sat (Coq) => ~ sat)
+    dpll = None => ~ sat
+  dpll = Some => sat (equivalently, ~ sat => dpll = None)
+    dpll = Some => sat (Coq)
+  ----------------------------
+  denoteFormula -> sat (Coq)   (note: the other direction is also true)
+  ----------------------------
+  refutable => dpll = None
+  ----------------------------
+    refutable => ~ sat
+    ~ sat => refutable
+    ~ sat => ~ sat (Coq)
+    sat => dpll = Some
+
+  ++ summary of relations
+  dpll = None <=> refutable <=> ~ sat <=> ~ sat (Coq)
+    (equivalently, dpll = Some <=> sat)
+  sat => sat (Coq)  <---- Note: one directional
+  denoteFormula <=> sat (Coq)
+ *===========================================================================*)
 Set Implicit Arguments.
 Require Import List Arith Omega.
 
@@ -373,9 +399,6 @@ Corollary dpll_unsat_sound' : forall n f, dpll n f = None -> ~ satisfiable f.
   red; intros; edestruct satisfiable_satFormula; eauto 2.
   contradict H1; eapply dpll_unsat_sound; eauto 2.
 Qed.
-
-Goal forall g f, satFormula g f -> satisfiable f. (* hard to prove *)
-Abort.
 
 
 (*=============================================================================
@@ -799,3 +822,218 @@ Section PigeonHole.
   Qed.
 
 End PigeonHole.
+
+
+(*=============================================================================
+ * more dpll facts
+ *===========================================================================*)
+
+Lemma okFormula_false_ex : forall l f, okFormula l f = false
+                     -> exists c, In c f /\ okClause l c = false.
+  induction f; simpl; try congruence; intros.
+  destruct (okClause l a) eqn:?; eauto 4.
+  solve [destruct IHf as [? [] ]; eauto 4].
+Qed.
+
+Lemma okLit_app : forall l x b y, okLit l x = b
+                                   -> litVar x < length l
+                                   -> okLit (l ++ y) x = b.
+  unfold okLit; intros.
+  assert (litVar x < length (l ++ y)).
+  solve [autorewrite with list; simpl; omega].
+  rewrite getVal_Some in * by auto.
+  destruct x; rewrite app_nth1 by auto; auto.
+Qed.
+
+Lemma okClause_app : forall l b y x, okClause l x = b
+                                   -> wf_clause (length l) x
+                                   -> okClause (l ++ y) x = b.
+  induction x; simpl; auto; intros.
+  erewrite okLit_app by auto; auto.
+  destruct (okLit l a) eqn:?; eauto 3.
+Qed.
+
+Lemma okFormula_app : forall l b y f, okFormula l f = b
+                                  -> wf_formula (length l) f
+                                  -> okFormula (l ++ y) f = b.
+  induction f; simpl; auto; intros.
+  erewrite okClause_app by auto.
+  destruct (okClause l a) eqn:?; eauto 3.
+Qed.  
+
+Lemma okLit_app' : forall l x y, okLit l x = false
+                                 -> okLit (l ++ y) x = false.
+  unfold okLit; intros.
+  destruct (le_lt_dec (length l) (litVar x)).
+  rewrite getVal_None in * by auto; congruence.
+  assert (litVar x < length (l ++ y)) by (autorewrite with list; omega).
+  rewrite getVal_Some in * by auto.
+  destruct x; rewrite app_nth1 by auto; auto.
+Qed.
+
+Lemma okClause_app' : forall l y x, okClause l x = false
+                                   -> okClause (l ++ y) x = false.
+  induction x; simpl; auto; intros.
+  destruct (okLit l a) eqn:?; try congruence.
+  erewrite okLit_app' by auto; auto.
+Qed.
+
+Lemma okFormula_app' : forall l y f, okFormula l f = false
+                                     -> okFormula (l ++ y) f = false.
+  induction f; simpl; auto; intros.
+  destruct (okClause l a) eqn:?; eauto 3.
+  destruct (okClause (l ++ y) a) eqn:?; eauto 3.
+  erewrite okClause_app' in * by auto; congruence.
+Qed.  
+
+Lemma getVal_Some_inv : forall v m b, getVal m v = Some b
+                                      -> v < length m /\ nth v m true = b.
+  intros.
+  destruct (le_lt_dec (length m) v).
+  rewrite getVal_None in * by auto; congruence.
+  rewrite getVal_Some in * by auto.
+  inversion_clear H; auto.
+Qed.
+
+
+(*=============================================================================
+ * numVarsFormula and well-formedness
+ *===========================================================================*)
+
+Fixpoint numVarsClause c :=
+  match c with
+    | nil => 0
+    | l :: c' => max (litVar l + 1) (numVarsClause c')
+  end.
+
+Fixpoint numVarsFormula F :=
+  match F with
+    | nil => 0
+    | c :: F' => max (numVarsClause c) (numVarsFormula F')
+  end.
+
+Lemma numVarsClause_wf_clause : forall n x, numVarsClause x <= n
+                                            -> wf_clause n x.
+  red; induction x; simpl; try tauto; intros.
+  apply NPeano.Nat.max_lub_iff in H; destruct H.
+  destruct H0; subst; try omega; auto.
+Qed.
+Hint Resolve numVarsClause_wf_clause.
+
+Lemma numVarsFormula_In : forall F c n, numVarsFormula F <= n -> In c F
+                                        -> numVarsClause c <= n.
+  induction F; simpl; try tauto; destruct 2; subst;
+  apply NPeano.Nat.max_lub_iff in H; destruct H; auto.
+Qed.
+Hint Resolve numVarsFormula_In.
+
+Lemma numVarsFormula_lt_wf : forall n F, numVarsFormula F <= n
+                                         -> wf_formula n F.
+  red; intros; eauto 3.
+Qed.
+
+Theorem wf_numVarsFormula : forall F, wf_formula (numVarsFormula F) F.
+  intros; apply numVarsFormula_lt_wf; omega.
+Qed.
+Hint Resolve wf_numVarsFormula.
+
+Lemma wf_clause_numVarsClause : forall n x, wf_clause n x
+                                            -> numVarsClause x <= n.
+  induction x; simpl; try omega; intros.
+  assert (litVar a < n) by auto.
+  apply Max.max_lub; eauto 3; omega.
+Qed.
+Hint Resolve wf_clause_numVarsClause.
+
+Lemma wf_formula_numVarsFormula : forall n f, wf_formula n f
+                                              -> numVarsFormula f <= n.
+  induction f; simpl; intros; try omega.
+  apply Max.max_lub; eauto 3.
+Qed.
+Hint Resolve wf_formula_numVarsFormula.
+
+
+(*=============================================================================
+ * refutable -> dpll = None
+ *===========================================================================*)
+
+Hint Constructors refutable.
+
+Lemma refutable_cons : forall f l b, refutable f l -> refutable f (l ++ (b::nil)).
+  inversion_clear 1.
+  {
+    constructor.
+    edestruct okFormula_false_ex as [? [] ]; eauto 3.
+    apply okFormula_app'; auto.
+  }
+  {
+    destruct b; auto.
+  }
+Qed.
+Hint Resolve refutable_cons.
+
+Lemma refutable_app : forall f x l, refutable f l -> refutable f (l ++ x).
+  induction x; intros; autorewrite with list; auto.
+  replace (l ++ a :: x) with ((l ++ a :: nil) ++ x); auto.
+  rewrite <- app_assoc; simpl; auto.
+Qed.
+
+Lemma refutable_nil_inv : forall f x, refutable f nil -> refutable f x.
+  intros.
+  change (refutable f (nil ++ x)).
+  apply refutable_app; auto.
+Qed.
+Hint Resolve refutable_nil_inv.
+
+Lemma refutable_contra : forall f l, refutable f l -> okFormula l f = true
+                                     -> numVarsFormula f <= length l -> False.
+  induction 1; intros; try congruence.
+  apply IHrefutable1; autorewrite with list; try omega.
+  apply okFormula_app; auto.
+  apply numVarsFormula_lt_wf; auto.
+Qed.
+
+Theorem refutable_dpll_None : forall n f, refutable f nil -> wf_formula n f
+                                          -> dpll n f = None.
+  intros; destruct (dpll n f) eqn:?; eauto 3.
+  exfalso.
+  assert (refutable f l) by auto.
+  eapply refutable_contra; eauto 2.
+  erewrite dpll_length by eauto 2; eauto 3.
+Qed.
+
+Corollary refutable_dpll_None' : forall f, refutable f nil
+                                        -> exists n, dpll n f = None.
+  intros; exists (numVarsFormula f); apply refutable_dpll_None; auto.
+Qed.
+
+
+(*=============================================================================
+ * more corollaries
+ *===========================================================================*)
+
+Goal forall f, refutable f nil -> ~ satisfiable f.
+  intros.
+  assert (dpll (numVarsFormula f) f = None).
+  solve [apply refutable_dpll_None; auto].
+  eapply dpll_unsat_sound'; eauto 3.
+Qed.
+  
+Goal forall f, ~ satisfiable f -> refutable f nil.
+  intros.
+  destruct (dpll (numVarsFormula f) f) eqn:?; auto.
+  contradict H; eapply dpll_sat_sound; eauto 3; congruence.
+  eapply dpll_refutable; eauto 3.
+Qed.
+
+Goal forall f g, ~ satisfiable f -> ~ satFormula g f.
+  intros.
+  destruct (dpll (numVarsFormula f) f) eqn:?; auto.
+  contradict H; eapply dpll_sat_sound; eauto 3; congruence.
+  eapply dpll_unsat_sound; eauto 3.
+Qed.  
+
+Goal forall f, satisfiable f -> exists n m, dpll n f = Some m /\ wf_formula n f.
+  intros; destruct (dpll (numVarsFormula f) f) eqn:?; eauto 4.
+  contradict H; eapply dpll_unsat_sound'; eauto 3.
+Qed.
