@@ -127,21 +127,17 @@ Qed.
  *===========================================================================*)
 
 Lemma getVal_Some : forall m n, n < length m -> getVal m n = Some (nth n m true).
-  induction m; simpl; intros; try omega.
-  destruct n; auto.
-  apply IHm; omega.
+  induction m; simpl; intros; try omega; destruct n; intuition.
 Qed.
 
 Lemma getVal_None : forall n m, length m <= n -> getVal m n = None.
-  induction n; destruct m; simpl; auto; try omega; intros.
-  apply IHn; omega.
+  induction n; destruct m; simpl; auto; try omega; intuition.
 Qed.
 
 Lemma okLit_false_lt : forall s l, okLit s l = false -> litVar l < length s.
-  unfold okLit; intros.
-  destruct (getVal s (litVar l)) eqn:?; try congruence.
+  unfold okLit; intros; destruct (getVal s (litVar l)) eqn:?; try congruence.
   destruct (le_lt_dec (length s) (litVar l)); auto.
-  solve [rewrite getVal_None in * by auto; congruence].
+  rewrite getVal_None in * by auto; congruence.
 Qed.
 Hint Resolve okLit_false_lt.
 
@@ -152,27 +148,6 @@ Lemma okClause_In : forall s c l, okClause s c = false -> In l c
   destruct H0; subst; auto.
 Qed.
 Hint Resolve okClause_In.
-
-
-(*=============================================================================
- * denotational satisfiability
- *===========================================================================*)
-
-Definition context := nat -> Prop.
-
-Section denoteSat.
-  Variable g : context.
-
-  Definition satLit l :=
-    match l with
-      | pos n => g n
-      | neg n => ~ g n
-    end.
-
-  Definition satClause c := exists l, In l c /\ satLit l.
-
-  Definition satFormula f := forall c, In c f -> satClause c.
-End denoteSat.
 
 
 (*=============================================================================
@@ -203,24 +178,44 @@ Qed.
 
 
 (*=============================================================================
+ * denotational satisfiability
+ *===========================================================================*)
+
+Definition context := nat -> Prop.
+
+Section denoteSat.
+  Variable g : context.
+
+  Definition satLit l :=
+    match l with
+      | pos n => g n
+      | neg n => ~ g n
+    end.
+
+  Definition satClause c := exists l, In l c /\ satLit l.
+
+  Definition satFormula f := forall c, In c f -> satClause c.
+End denoteSat.
+
+
+(*=============================================================================
  * m2i - turn a finite model into a interpretation function
  *===========================================================================*)
 
-Definition m2i m n := nth n m true.
+Definition nth2fun {A} (l : list A) d := fun n => nth n l d.
+Definition m2i m := nth2fun m true.
 
 Lemma m2i_app_lt : forall x y v, v < length x -> m2i (x ++ y) v = m2i x v.
-  unfold m2i; intros.
-  rewrite app_nth1; auto.
+  unfold m2i, nth2fun; intros; rewrite app_nth1; auto.
 Qed.
 
 Lemma m2i_app_ge : forall x y v, v >= length x
                                  -> m2i (x ++ y) v = m2i y (v - length x).
-  unfold m2i; intros.
-  rewrite app_nth2; auto.
+  unfold m2i, nth2fun; intros; rewrite app_nth2; auto.
 Qed.
 
 Lemma getVal_m2i : forall m n, n < length m -> getVal m n = Some (m2i m n).
-  unfold m2i; apply getVal_Some; auto.
+  unfold m2i, nth2fun; apply getVal_Some; auto.
 Qed.
 
 
@@ -251,8 +246,7 @@ Lemma okFormula_false : forall s g f, okFormula s f = false -> assumed g s
   induction f; simpl; try congruence; intros.
   destruct (okClause s a) eqn:?.
   {
-    intro.
-    eelim IHf; eauto 3.
+    intro; eelim IHf; eauto 3.
     red; auto.
   }
   intro.
@@ -521,6 +515,12 @@ Lemma dpll_h_okFormula : forall F n m m', dpll_h F m n = Some m'
   destruct (dpll_h F (m ++ true :: nil) n) eqn:?; options; eauto 3.
 Qed.
 
+Lemma dpll_okFormula : forall F nv m , dpll nv F = Some m
+                                         -> okFormula m F = true.
+  unfold dpll; intros; eapply dpll_h_okFormula; eauto 3.
+Qed.
+Hint Resolve dpll_okFormula.
+
 Lemma dpll_h_length : forall F n m m', dpll_h F m n = Some m'
                                           -> length m' = length m + n.
   induction n; simpl; intros;
@@ -535,12 +535,6 @@ Lemma dpll_h_length : forall F n m m', dpll_h F m n = Some m'
     autorewrite with list; simpl; omega.
   }
 Qed.
-
-Lemma dpll_okFormula : forall F nv m , dpll nv F = Some m
-                                         -> okFormula m F = true.
-  unfold dpll; intros; eapply dpll_h_okFormula; eauto 3.
-Qed.
-Hint Resolve dpll_okFormula.
 
 Lemma dpll_length : forall F nv m , dpll nv F = Some m
                                       -> length m = nv.
@@ -598,6 +592,31 @@ End denotation.
 
 
 (*=============================================================================
+ * denoteFormula -> satFormula
+ *===========================================================================*)
+
+Lemma denoteClause_satClause : forall g c, denoteClause g c -> satClause g c.
+  induction c; simpl; try tauto; destruct 1.
+  exists a; simpl; auto.
+  destruct IHc as [? [] ]; auto.
+  exists x; simpl; auto.
+Qed.
+Hint Resolve denoteClause_satClause.
+
+Lemma denoteFormula_satClause : forall g f c, denoteFormula g f -> In c f
+                                              -> satClause g c.
+  induction f; simpl; try tauto; destruct 1, 1; subst; auto.
+Qed.
+Hint Resolve denoteFormula_satClause.
+
+Theorem denoteFormula_satFormula : forall g f, denoteFormula g f
+                                               -> satFormula g f.
+  red; intros; eauto 3.
+Qed.
+Hint Resolve denoteFormula_satFormula.
+
+
+(*=============================================================================
  * trimmed denotation
  *===========================================================================*)
 
@@ -630,31 +649,6 @@ Theorem denoteFormula_trim : forall g x, denoteFormula' g x -> denoteFormula g x
   apply IHx; auto.
 Qed.
 Hint Resolve denoteFormula_trim.
-
-
-(*=============================================================================
- * denoteFormula -> satFormula
- *===========================================================================*)
-
-Lemma denoteClause_satClause : forall g c, denoteClause g c -> satClause g c.
-  induction c; simpl; try tauto; destruct 1.
-  exists a; simpl; auto.
-  destruct IHc as [? [] ]; auto.
-  exists x; simpl; auto.
-Qed.
-Hint Resolve denoteClause_satClause.
-
-Lemma denoteFormula_satClause : forall g f c, denoteFormula g f -> In c f
-                                              -> satClause g c.
-  induction f; simpl; try tauto; destruct 1, 1; subst; auto.
-Qed.
-Hint Resolve denoteFormula_satClause.
-
-Theorem denoteFormula_satFormula : forall g f, denoteFormula g f
-                                               -> satFormula g f.
-  red; intros; eauto 3.
-Qed.
-Hint Resolve denoteFormula_satFormula.
 
 
 (*=============================================================================
@@ -731,8 +725,6 @@ Ltac reify :=
       let f := reifyFormula g F in
       pose f
   end.
-
-Definition nth2fun {A} (l : list A) d := fun n => nth n l d.
 
 
 (*=============================================================================
